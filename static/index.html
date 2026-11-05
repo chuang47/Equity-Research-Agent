@@ -1,0 +1,785 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Equity Research</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+<style>
+:root {
+  --bg: #f6f7f9; --surface: #ffffff; --surface-2: #f0f2f5; --border: #e3e6eb;
+  --ink: #14171c; --ink-2: #4a5160; --ink-3: #7c8494;
+  --accent: #3b5bdb; --accent-soft: #e7ecfd;
+  --up: #12805c; --down: #c92a3a; --up-soft: #e3f4ec; --down-soft: #fbe7e9;
+  --grid: #eceef2; --shadow: 0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.06);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1015; --surface: #151920; --surface-2: #1c212a; --border: #262c37;
+    --ink: #e8ebf0; --ink-2: #a7afbd; --ink-3: #737c8c;
+    --accent: #7b93f5; --accent-soft: #1e2643;
+    --up: #34c38f; --down: #f2616e; --up-soft: #12291f; --down-soft: #2d1519;
+    --grid: #1f242d; --shadow: none; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1015; --surface: #151920; --surface-2: #1c212a; --border: #262c37;
+  --ink: #e8ebf0; --ink-2: #a7afbd; --ink-3: #737c8c;
+  --accent: #7b93f5; --accent-soft: #1e2643;
+  --up: #34c38f; --down: #f2616e; --up-soft: #12291f; --down-soft: #2d1519;
+  --grid: #1f242d; --shadow: none; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); }
+body { font: 14px/1.45 Inter, system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+a { color: inherit; text-decoration: none; }
+.mono, .num { font-family: "JetBrains Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.up { color: var(--up); } .down { color: var(--down); } .muted { color: var(--ink-3); }
+
+/* header */
+header { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+.bar { max-width: 1280px; margin: 0 auto; padding: 12px 20px; display: flex; gap: 20px; align-items: center; }
+.logo { font-weight: 700; font-size: 16px; letter-spacing: -.01em; display: flex; align-items: center; gap: 8px; white-space: nowrap; cursor: pointer; }
+.logo-mark { width: 26px; height: 26px; border-radius: 7px; background: var(--accent); display: grid; place-items: center; color: #fff; }
+.search { position: relative; flex: 1; max-width: 560px; min-width: 0; }
+.search input { width: 100%; height: 40px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface);
+  color: var(--ink); padding: 0 14px 0 38px; font: inherit; outline: none; transition: border-color .15s, box-shadow .15s; }
+.search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.search svg { position: absolute; left: 12px; top: 12px; color: var(--ink-3); }
+.suggest { position: absolute; top: 46px; left: 0; right: 0; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.12); overflow: hidden; display: none; }
+.suggest.open { display: block; }
+.suggest div { padding: 9px 14px; display: flex; gap: 12px; align-items: baseline; cursor: pointer; }
+.suggest div.active, .suggest div:hover { background: var(--surface-2); }
+.suggest b { min-width: 72px; font-family: "JetBrains Mono", monospace; font-weight: 500; }
+.suggest span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
+.suggest em { font-style: normal; font-size: 12px; color: var(--ink-3); }
+.theme-btn { flex-shrink: 0; margin-left: auto; border: 1px solid var(--border); background: var(--surface); color: var(--ink-2);
+  width: 36px; height: 36px; border-radius: 9px; cursor: pointer; display: grid; place-items: center; }
+
+/* market strip */
+.strip { max-width: 1280px; margin: 0 auto; padding: 14px 20px 2px; display: grid; grid-auto-flow: column;
+  grid-auto-columns: minmax(128px, 1fr); gap: 10px; overflow-x: auto; scrollbar-width: none; }
+.strip::-webkit-scrollbar { display: none; }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; cursor: pointer;
+  box-shadow: var(--shadow); transition: border-color .15s; min-width: 0; }
+.tile:hover { border-color: var(--accent); }
+.tile .n { font-size: 12px; color: var(--ink-2); font-weight: 500; }
+.tile .p { font-size: 14px; font-weight: 500; margin-top: 2px; }
+.tile .c { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile svg { display: block; width: 100%; height: 26px; margin-top: 6px; }
+
+main { max-width: 1280px; margin: 0 auto; padding: 20px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); }
+.card-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.card-h h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { border: 1px solid var(--border); background: transparent; color: var(--ink-2); border-radius: 999px;
+  padding: 4px 11px; font: 500 12px Inter, sans-serif; cursor: pointer; }
+.chip.on { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+
+/* home */
+.home { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 20px; align-items: start; }
+.news-list { list-style: none; margin: 0; padding: 0; }
+.news-item { display: flex; gap: 14px; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+.news-item:last-child { border-bottom: 0; }
+.news-item:hover h3 { color: var(--accent); }
+.news-item h3 { margin: 0 0 4px; font-size: 15px; font-weight: 600; line-height: 1.35; transition: color .15s; }
+.news-item p { margin: 0 0 6px; color: var(--ink-2); font-size: 13px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.news-meta { font-size: 12px; color: var(--ink-3); display: flex; gap: 8px; align-items: center; }
+.src { font-weight: 600; color: var(--ink-2); }
+.news-item img { width: 112px; height: 74px; object-fit: cover; border-radius: 8px; flex-shrink: 0; background: var(--surface-2); }
+.movers table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.movers td { padding: 9px 8px; border-bottom: 1px solid var(--border); }
+.movers td:first-child { padding-left: 18px; } .movers td:last-child { padding-right: 18px; width: 96px; } .movers td:nth-child(2) { width: 84px; }
+.movers tr:last-child td { border-bottom: 0; }
+.movers tr { cursor: pointer; } .movers tr:hover td { background: var(--surface-2); }
+.movers .sym { font-family: "JetBrains Mono", monospace; font-weight: 500; }
+.movers .nm { font-size: 12px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pill { display: inline-block; min-width: 66px; text-align: right; padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 500; }
+.pill.up { background: var(--up-soft); } .pill.down { background: var(--down-soft); }
+.compact .news-item { padding: 12px 18px; gap: 12px; }
+.compact .news-item h3 { font-size: 13.5px; }
+.compact .news-item p { display: none; }
+.compact .news-item img { width: 64px; height: 64px; }
+.compact .news-meta { flex-wrap: wrap; gap: 2px 8px; }
+.side { display: flex; flex-direction: column; gap: 20px; }
+.recent { padding: 12px 18px; display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* quote view */
+.q-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; flex-wrap: wrap; margin-bottom: 16px; }
+.q-name { font-size: 24px; font-weight: 700; margin: 0; letter-spacing: -.02em; }
+.q-sub { color: var(--ink-3); font-size: 13px; margin-top: 2px; }
+.q-price { font-size: 36px; font-weight: 600; letter-spacing: -.02em; }
+.q-chg { font-size: 16px; font-weight: 500; margin-left: 10px; }
+.q-state { font-size: 12px; color: var(--ink-3); margin-top: 2px; text-align: right; }
+.q-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+.ranges { display: flex; gap: 2px; background: var(--surface-2); padding: 3px; border-radius: 9px; }
+.ranges button { border: 0; background: transparent; color: var(--ink-2); font: 600 12px Inter, sans-serif; padding: 6px 12px; border-radius: 7px; cursor: pointer; }
+.ranges button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.chart-meta { display: flex; gap: 18px; font-size: 13px; color: var(--ink-2); flex-wrap: wrap; }
+.chart-meta b { color: var(--ink); font-weight: 500; }
+.chart-wrap { position: relative; height: 340px; padding: 8px 10px 0 4px; }
+.vol-wrap { position: relative; height: 80px; padding: 0 10px 8px 4px; }
+.vol-label { font-size: 11px; color: var(--ink-3); padding: 4px 18px 0; text-transform: uppercase; letter-spacing: .04em; }
+.returns { display: grid; grid-template-columns: repeat(6, 1fr); border-top: 1px solid var(--border); }
+.returns > div { padding: 12px; text-align: center; border-right: 1px solid var(--border); }
+.returns > div:last-child { border-right: 0; }
+.returns .k { font-size: 11px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; }
+.returns .v { font-size: 14px; font-weight: 500; margin-top: 2px; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; }
+.stats div { display: flex; justify-content: space-between; gap: 8px; padding: 9px 18px; border-bottom: 1px solid var(--border); font-size: 13px; }
+.stats div:nth-child(odd) { border-right: 1px solid var(--border); }
+.stats span:first-child { color: var(--ink-2); }
+.stats span:last-child { font-weight: 500; text-align: right; }
+.section { margin-top: 20px; }
+.about { padding: 16px 18px; color: var(--ink-2); font-size: 13.5px; line-height: 1.6; }
+.about .facts { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 12px; font-size: 12.5px; }
+.about .facts b { display: block; color: var(--ink); font-weight: 500; }
+.target { padding: 16px 18px; }
+.target .bar-track { position: relative; height: 6px; background: var(--surface-2); border-radius: 3px; margin: 34px 0 30px; }
+.target .bar-fill { position: absolute; height: 100%; background: var(--accent-soft); border-radius: 3px; }
+.target .mk { position: absolute; top: 50%; transform: translate(-50%, -50%); width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--surface); }
+.target .mk.cur { background: var(--ink); } .target .mk.avg { background: var(--accent); }
+.target .lbl { position: absolute; transform: translateX(-50%); font-size: 11px; white-space: nowrap; color: var(--ink-2); }
+.target .lbl.top { bottom: 14px; } .target .lbl.bot { top: 14px; }
+.rec { display: inline-block; padding: 3px 10px; border-radius: 6px; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; background: var(--surface-2); }
+.range52 { padding: 0 18px 16px; }
+.range52 .track { position: relative; height: 4px; background: var(--surface-2); border-radius: 2px; margin: 8px 0 4px; }
+.range52 .dot { position: absolute; top: 50%; width: 10px; height: 10px; border-radius: 50%; background: var(--ink); transform: translate(-50%, -50%); }
+.range52 .ends { display: flex; justify-content: space-between; font-size: 12px; color: var(--ink-2); }
+
+.loading { padding: 40px; text-align: center; color: var(--ink-3); }
+.skeleton { background: linear-gradient(90deg, var(--surface-2), var(--border), var(--surface-2)); background-size: 200% 100%;
+  animation: sh 1.2s infinite; border-radius: 6px; }
+@keyframes sh { to { background-position: -200% 0; } }
+.err { padding: 40px; text-align: center; }
+.err h2 { margin: 0 0 6px; }
+.back { display: inline-flex; gap: 6px; align-items: center; color: var(--ink-2); font-size: 13px; cursor: pointer; margin-bottom: 14px; }
+.back:hover { color: var(--accent); }
+.star { border: 1px solid var(--border); background: var(--surface); color: var(--ink-2); border-radius: 8px; padding: 6px 10px; cursor: pointer; font: 500 12px Inter, sans-serif; }
+.star.on { color: #d69e00; border-color: #d69e00; }
+
+@media (max-width: 980px) {
+  .home, .q-grid { grid-template-columns: minmax(0, 1fr); }
+  .returns { grid-template-columns: repeat(3, 1fr); }
+  .returns > div:nth-child(3) { border-right: 0; }
+  .returns > div:nth-child(-n+3) { border-bottom: 1px solid var(--border); }
+}
+@media (max-width: 560px) {
+  .bar { padding: 10px 16px; gap: 10px; } .logo span { display: none; }
+  main { padding: 16px; } .strip { padding: 12px 16px 2px; }
+  .stats { grid-template-columns: 1fr; } .stats div:nth-child(odd) { border-right: 0; }
+  .news-item img { width: 80px; height: 60px; }
+  .q-price { font-size: 30px; }
+  .q-head > div:last-child { width: 100%; } .q-state { text-align: left; }
+  .chart-wrap { height: 260px; } .search input { font-size: 13px; }
+  .card-h { padding: 12px 14px; }
+  .ranges button { padding: 6px 8px; }
+}
+/* ---------- AI chat */
+.ai-fab { position: fixed; right: 22px; bottom: 22px; z-index: 40; height: 46px; padding: 0 18px 0 14px; border-radius: 23px;
+  border: 0; background: var(--accent); color: #fff; font: 600 14px Inter, sans-serif; display: flex; align-items: center; gap: 8px;
+  cursor: pointer; box-shadow: 0 6px 20px rgba(59,91,219,.35); transition: transform .15s; }
+.ai-fab:hover { transform: translateY(-1px); }
+.ai-fab.hide { display: none; }
+.ai-btn { border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent); border-radius: 8px; padding: 6px 10px;
+  cursor: pointer; font: 600 12px Inter, sans-serif; margin-left: 6px; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 440px; max-width: 100vw; z-index: 50; background: var(--surface);
+  border-left: 1px solid var(--border); box-shadow: -12px 0 32px rgba(0,0,0,.18); display: flex; flex-direction: column;
+  transform: translateX(105%); transition: transform .22s ease; }
+.drawer.open { transform: none; }
+.dr-h { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.dr-h h2 { margin: 0; font-size: 15px; font-weight: 600; flex: 1; display: flex; align-items: center; gap: 8px; }
+.ctx-chip { font: 500 11px "JetBrains Mono", monospace; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--ink-2); }
+.icon-btn { border: 0; background: transparent; color: var(--ink-3); width: 30px; height: 30px; border-radius: 7px; cursor: pointer; display: grid; place-items: center; }
+.icon-btn:hover { background: var(--surface-2); color: var(--ink); }
+.dr-body { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.msg { max-width: 100%; font-size: 14px; line-height: 1.55; overflow-wrap: anywhere; }
+.msg.user { align-self: flex-end; max-width: 85%; background: var(--accent); color: #fff; padding: 9px 13px; border-radius: 14px 14px 4px 14px; white-space: pre-wrap; }
+.msg.bot { color: var(--ink); }
+.msg.bot > :first-child { margin-top: 0; } .msg.bot > :last-child { margin-bottom: 0; }
+.msg.bot p { margin: 0 0 10px; } .msg.bot ul, .msg.bot ol { margin: 0 0 10px; padding-left: 20px; } .msg.bot li { margin: 3px 0; }
+.msg.bot h1, .msg.bot h2, .msg.bot h3, .msg.bot h4 { font-size: 14.5px; margin: 14px 0 6px; }
+.msg.bot a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.msg.bot code { font-family: "JetBrains Mono", monospace; font-size: 12.5px; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+.msg.bot table { border-collapse: collapse; font-size: 12.5px; margin: 0 0 10px; display: block; overflow-x: auto; }
+.msg.bot th, .msg.bot td { border: 1px solid var(--border); padding: 4px 8px; text-align: left; }
+.msg.bot th { background: var(--surface-2); font-weight: 600; }
+.msg.err { color: var(--down); background: var(--down-soft); padding: 9px 13px; border-radius: 10px; font-size: 13px; }
+.status { font-size: 12.5px; color: var(--ink-3); display: flex; align-items: center; gap: 8px; }
+.dots { display: inline-flex; gap: 3px; } .dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--ink-3); animation: blink 1.2s infinite; }
+.dots i:nth-child(2) { animation-delay: .2s; } .dots i:nth-child(3) { animation-delay: .4s; }
+@keyframes blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+.srcs { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+.srcs a { font-size: 11.5px; padding: 3px 9px; border-radius: 999px; background: var(--surface-2); color: var(--ink-2); max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-decoration: none !important; }
+.srcs a:hover { color: var(--accent); }
+.empty { margin: auto 0; text-align: center; color: var(--ink-3); }
+.empty h3 { color: var(--ink); margin: 0 0 4px; font-size: 16px; }
+.sugs { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; text-align: left; }
+.sugs button { border: 1px solid var(--border); background: var(--surface); color: var(--ink); border-radius: 10px; padding: 10px 12px;
+  font: 500 13px Inter, sans-serif; text-align: left; cursor: pointer; }
+.sugs button:hover { border-color: var(--accent); color: var(--accent); }
+.dr-f { border-top: 1px solid var(--border); padding: 12px; display: flex; gap: 8px; align-items: flex-end; }
+.dr-f textarea { flex: 1; resize: none; min-height: 42px; max-height: 140px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg);
+  color: var(--ink); padding: 10px 12px; font: 14px/1.4 Inter, sans-serif; outline: none; }
+.dr-f textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.send { width: 42px; height: 42px; border: 0; border-radius: 10px; background: var(--accent); color: #fff; cursor: pointer; display: grid; place-items: center; flex-shrink: 0; }
+.send:disabled { opacity: .45; cursor: default; }
+.disclaim { font-size: 11px; color: var(--ink-3); text-align: center; padding: 0 12px 10px; }
+@media (max-width: 560px) { .ai-fab span { display: none; } .ai-fab { padding: 0 14px; } }
+
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <a class="logo" href="#/"><div class="logo-mark"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg></div><span>Equity Research</span></a>
+    <div class="search">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" placeholder="Search ticker or company — e.g. AAPL, Nvidia  ( / )" autocomplete="off" spellcheck="false">
+      <div class="suggest" id="suggest"></div>
+    </div>
+    <button class="theme-btn" id="themeBtn" title="Toggle theme"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+  </div>
+</header>
+<div class="strip" id="strip"></div>
+<main id="view"></main>
+<button class="ai-fab" id="aiFab" title="Ask the research assistant"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></svg><span>Ask AI</span></button>
+<aside class="drawer" id="drawer" aria-label="Research assistant">
+  <div class="dr-h"><h2>Research assistant <span class="ctx-chip" id="ctxChip"></span></h2>
+    <button class="icon-btn" id="chatClear" title="New conversation"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></button>
+    <button class="icon-btn" id="chatClose" title="Close (Esc)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+  <div class="dr-body" id="chatBody"></div>
+  <div class="dr-f"><textarea id="chatIn" rows="1" placeholder="Ask about this stock or the market…"></textarea>
+    <button class="send" id="chatSend" title="Send"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>
+  <div class="disclaim">AI-generated research. Not investment advice; verify before acting.</div>
+</aside>
+
+
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const api = (p) => fetch(p).then(async r => { const j = await r.json(); if (!r.ok) throw new Error(j.error || r.statusText); return j; });
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const store = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+
+// ---------- formatting
+const fmtPrice = (v, d) => v == null ? "—" : v.toLocaleString("en-US", { minimumFractionDigits: d ?? (Math.abs(v) < 1 ? 4 : 2), maximumFractionDigits: d ?? (Math.abs(v) < 1 ? 4 : 2) });
+const fmtPct = (v) => v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
+const fmtChg = (v) => v == null ? "—" : `${v >= 0 ? "+" : ""}${fmtPrice(v)}`;
+const fmtBig = (v) => { if (v == null) return "—"; const a = Math.abs(v);
+  for (const [n, s] of [[1e12, "T"], [1e9, "B"], [1e6, "M"], [1e3, "K"]]) if (a >= n) return (v / n).toFixed(2) + s; return v.toLocaleString(); };
+const fmtX = (v) => v == null ? "—" : v.toFixed(2) + "x";
+const fmtRatio = (v) => v == null ? "—" : (v * 100).toFixed(2) + "%";
+const cls = (v) => v == null ? "" : v >= 0 ? "up" : "down";
+const arrow = (v) => v == null ? "" : v >= 0 ? "▲" : "▼";
+const ago = (ts) => { if (!ts) return ""; const s = Date.now() / 1000 - ts;
+  if (s < 3600) return Math.max(1, Math.round(s / 60)) + "m ago"; if (s < 86400) return Math.round(s / 3600) + "h ago";
+  return Math.round(s / 86400) + "d ago"; };
+const fmtDate = (ts) => ts ? new Date(ts * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—";
+
+// ---------- theme
+const themeBtn = $("#themeBtn");
+const applyTheme = (t) => { if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme; };
+applyTheme(store.get("theme", null));
+themeBtn.onclick = () => {
+  const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  const next = dark ? "light" : "dark"; applyTheme(next); store.set("theme", next); route();
+};
+
+// ---------- sparkline svg
+function spark(vals, up) {
+  if (!vals || vals.length < 2) return "<svg></svg>";
+  const min = Math.min(...vals), max = Math.max(...vals), w = 120, h = 26, r = max - min || 1;
+  const pts = vals.map((v, i) => `${(i / (vals.length - 1) * w).toFixed(1)},${(h - 2 - (v - min) / r * (h - 4)).toFixed(1)}`).join(" ");
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="var(${up ? "--up" : "--down"})" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>`;
+}
+
+// ---------- market strip
+async function loadStrip() {
+  const el = $("#strip");
+  if (!el.children.length) el.innerHTML = Array(9).fill('<div class="tile"><div class="skeleton" style="height:58px"></div></div>').join("");
+  try {
+    const data = await api("/api/markets");
+    el.innerHTML = data.map(m => `<a class="tile" href="#/q/${encodeURIComponent(m.symbol)}">
+      <div class="n">${esc(m.name)}</div>
+      <div class="p num">${fmtPrice(m.price)}</div>
+      <div class="c num ${cls(m.change)}">${arrow(m.change)} ${fmtPct(m.changePct)}</div>
+      ${spark(m.spark, m.change >= 0)}</a>`).join("");
+  } catch (e) { el.innerHTML = ""; }
+}
+
+// ---------- search
+const input = $("#q"), sug = $("#suggest");
+let sugItems = [], sugIdx = -1, sugTimer;
+input.addEventListener("input", () => {
+  clearTimeout(sugTimer);
+  const v = input.value.trim();
+  if (!v) { sug.classList.remove("open"); return; }
+  sugTimer = setTimeout(async () => {
+    try { sugItems = await api("/api/search?q=" + encodeURIComponent(v)); } catch { sugItems = []; }
+    if (input.value.trim() !== v) return;
+    sugIdx = -1; renderSug();
+  }, 180);
+});
+function renderSug() {
+  if (!sugItems.length) { sug.classList.remove("open"); return; }
+  sug.innerHTML = sugItems.map((s, i) => `<div data-i="${i}" class="${i === sugIdx ? "active" : ""}"><b>${esc(s.symbol)}</b><span>${esc(s.name)}</span><em>${esc(s.type || "")} · ${esc(s.exchange || "")}</em></div>`).join("");
+  sug.classList.add("open");
+}
+sug.addEventListener("mousedown", (e) => { const d = e.target.closest("[data-i]"); if (d) go(sugItems[+d.dataset.i].symbol); });
+input.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowDown") { sugIdx = Math.min(sugIdx + 1, sugItems.length - 1); renderSug(); e.preventDefault(); }
+  else if (e.key === "ArrowUp") { sugIdx = Math.max(sugIdx - 1, -1); renderSug(); e.preventDefault(); }
+  else if (e.key === "Enter") { const s = sugIdx >= 0 ? sugItems[sugIdx].symbol : input.value.trim(); if (s) go(s); }
+  else if (e.key === "Escape") { sug.classList.remove("open"); input.blur(); }
+});
+input.addEventListener("blur", () => setTimeout(() => sug.classList.remove("open"), 120));
+document.addEventListener("keydown", (e) => { if (e.key === "/" && !["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName)) { e.preventDefault(); input.focus(); input.select(); } });
+function go(sym) { input.value = ""; sug.classList.remove("open"); input.blur(); location.hash = "#/q/" + encodeURIComponent(sym.toUpperCase()); }
+
+// ---------- router
+window.addEventListener("hashchange", route);
+function route() {
+  const m = location.hash.match(/^#\/q\/(.+)$/);
+  destroyCharts();
+  if (m) renderQuote(decodeURIComponent(m[1])); else renderHome();
+  refreshChatContext();
+  window.scrollTo(0, 0);
+}
+
+// ---------- home
+let newsCache = null, newsFilter = "All", moverTab = "day_gainers", moversCache = null;
+function renderHome() {
+  document.title = "Equity Research";
+  const watch = store.get("watchlist", []), recent = store.get("recent", []);
+  $("#view").innerHTML = `<div class="home">
+    <section class="card">
+      <div class="card-h"><h2>Trending news</h2><div class="chips" id="newsChips"></div></div>
+      <ul class="news-list" id="news"><li class="loading">Loading headlines…</li></ul>
+    </section>
+    <aside class="side">
+      ${watch.length ? `<section class="card"><div class="card-h"><h2>Watchlist</h2></div><div class="recent">${watch.map(s => `<a class="chip mono" href="#/q/${encodeURIComponent(s)}">${esc(s)}</a>`).join("")}</div></section>` : ""}
+      <section class="card movers">
+        <div class="card-h"><h2>Market movers</h2>
+          <div class="chips" id="moverChips">${[["day_gainers", "Gainers"], ["day_losers", "Losers"], ["most_actives", "Active"]].map(([k, l]) => `<button class="chip ${k === moverTab ? "on" : ""}" data-k="${k}">${l}</button>`).join("")}</div></div>
+        <table id="moversT"><tr><td class="loading">Loading…</td></tr></table>
+      </section>
+      ${recent.length ? `<section class="card"><div class="card-h"><h2>Recently viewed</h2></div><div class="recent">${recent.map(s => `<a class="chip mono" href="#/q/${encodeURIComponent(s)}">${esc(s)}</a>`).join("")}</div></section>` : ""}
+    </aside></div>`;
+  $("#moverChips").onclick = (e) => { const b = e.target.closest("[data-k]"); if (!b) return; moverTab = b.dataset.k;
+    [...$("#moverChips").children].forEach(c => c.classList.toggle("on", c === b)); drawMovers(); };
+  loadNews(); loadMovers();
+}
+async function loadNews() {
+  try { newsCache = newsCache || await api("/api/news"); } catch { $("#news").innerHTML = '<li class="loading">Could not load news.</li>'; return; }
+  const sources = ["All", ...new Set(newsCache.map(n => n.source))];
+  const chips = $("#newsChips"); if (!chips) return;
+  chips.innerHTML = sources.map(s => `<button class="chip ${s === newsFilter ? "on" : ""}" data-s="${esc(s)}">${esc(s)}</button>`).join("");
+  chips.onclick = (e) => { const b = e.target.closest("[data-s]"); if (!b) return; newsFilter = b.dataset.s; loadNews(); };
+  const items = newsCache.filter(n => newsFilter === "All" || n.source === newsFilter).slice(0, 40);
+  $("#news").innerHTML = items.map(newsItem).join("") || '<li class="loading">No headlines.</li>';
+}
+function newsItem(n) {
+  return `<li><a class="news-item" href="${esc(n.link)}" target="_blank" rel="noopener">
+    <div style="flex:1;min-width:0"><h3>${esc(n.title)}</h3>${n.summary ? `<p>${esc(n.summary)}</p>` : ""}
+    <div class="news-meta"><span class="src">${esc(n.provider || n.source)}</span>${n.provider && n.provider !== n.source ? `<span>via ${esc(n.source)}</span>` : ""}<span>${ago(n.ts)}</span></div></div>
+    ${n.thumb ? `<img src="${esc(n.thumb)}" alt="" loading="lazy" onerror="this.remove()">` : ""}</a></li>`;
+}
+async function loadMovers() {
+  try { moversCache = moversCache || await api("/api/movers"); drawMovers(); }
+  catch { const t = $("#moversT"); if (t) t.innerHTML = '<tr><td class="loading">Could not load movers.</td></tr>'; }
+}
+function drawMovers() {
+  const t = $("#moversT"); if (!t || !moversCache) return;
+  t.innerHTML = (moversCache[moverTab] || []).map(m => `<tr data-s="${esc(m.symbol)}">
+    <td><div class="sym">${esc(m.symbol)}</div><div class="nm">${esc(m.name)}</div></td>
+    <td class="num" style="text-align:right">${fmtPrice(m.price)}<div class="muted" style="font-size:11px">${fmtBig(m.volume)} vol</div></td>
+    <td style="text-align:right"><span class="pill num ${cls(m.changePct)}">${fmtPct(m.changePct)}</span></td></tr>`).join("");
+  t.onclick = (e) => { const r = e.target.closest("[data-s]"); if (r) go(r.dataset.s); };
+}
+
+// ---------- quote view
+let charts = [], curRange = "1d", curSym = null;
+const RANGE_LABELS = [["1d", "1D"], ["5d", "5D"], ["1mo", "1M"], ["3mo", "3M"], ["ytd", "YTD"], ["1y", "1Y"], ["5y", "5Y"]];
+function destroyCharts() { charts.forEach(c => c.destroy()); charts = []; }
+
+async function renderQuote(sym) {
+  if (sym !== curSym) curRange = store.get("range", "1d");
+  curSym = sym;
+  const view = $("#view");
+  view.innerHTML = `<a class="back" href="#/">← Markets</a><div class="loading"><div class="skeleton" style="height:42px;width:260px;margin:0 auto 12px"></div>Loading ${esc(sym)}…</div>`;
+  let q;
+  try { q = await api("/api/quote/" + encodeURIComponent(sym)); }
+  catch (e) { view.innerHTML = `<a class="back" href="#/">← Markets</a><div class="card err"><h2>Symbol not found</h2><p class="muted">${esc(e.message)}. Try searching by company name.</p></div>`; return; }
+  if (curSym !== sym) return;
+
+  const recent = store.get("recent", []).filter(s => s !== sym); recent.unshift(sym); store.set("recent", recent.slice(0, 12));
+  const watch = store.get("watchlist", []);
+  const name = q.longName || q.shortName || sym;
+  document.title = `${sym} ${fmtPrice(q.price)} · Equity Research`;
+
+  const stats = [
+    ["Previous close", fmtPrice(q.prevClose)], ["Open", fmtPrice(q.open)],
+    ["Day range", q.dayLow != null ? `${fmtPrice(q.dayLow)} – ${fmtPrice(q.dayHigh)}` : "—"],
+    ["52-week range", q.fiftyTwoWeekLow != null ? `${fmtPrice(q.fiftyTwoWeekLow)} – ${fmtPrice(q.fiftyTwoWeekHigh)}` : "—"],
+    ["Volume", fmtBig(q.volume)], ["Avg volume", fmtBig(q.averageVolume)],
+    ["Market cap", fmtBig(q.marketCap)], ["Enterprise value", fmtBig(q.enterpriseValue)],
+    ["P/E (TTM)", q.trailingPE ? q.trailingPE.toFixed(2) : "—"], ["Forward P/E", q.forwardPE ? q.forwardPE.toFixed(2) : "—"],
+    ["EPS (TTM)", fmtPrice(q.trailingEps)], ["Forward EPS", fmtPrice(q.forwardEps)],
+    ["PEG ratio", q.pegRatio ? q.pegRatio.toFixed(2) : "—"], ["Price/Book", q.priceToBook ? q.priceToBook.toFixed(2) : "—"],
+    ["EV/EBITDA", fmtX(q.enterpriseToEbitda)], ["Beta (5Y)", q.beta ? q.beta.toFixed(2) : "—"],
+    ["Dividend yield", q.dividendYield != null ? q.dividendYield.toFixed(2) + "%" : "—"], ["Ex-dividend", fmtDate(q.exDividendDate)],
+    ["Revenue (TTM)", fmtBig(q.totalRevenue)], ["Revenue growth", fmtRatio(q.revenueGrowth)],
+    ["Gross margin", fmtRatio(q.grossMargins)], ["Profit margin", fmtRatio(q.profitMargins)],
+    ["Operating margin", fmtRatio(q.operatingMargins)], ["Return on equity", fmtRatio(q.returnOnEquity)],
+    ["Free cash flow", fmtBig(q.freeCashflow)], ["EBITDA", fmtBig(q.ebitda)],
+    ["Total cash", fmtBig(q.totalCash)], ["Total debt", fmtBig(q.totalDebt)],
+    ["Shares outstanding", fmtBig(q.sharesOutstanding)], ["Next earnings", fmtDate(q.earningsTimestamp)],
+  ].filter(([, v]) => v !== "—" || q.quoteType === "EQUITY");
+
+  const marketState = { REGULAR: "Market open", PRE: "Pre-market", POST: "After hours", CLOSED: "Market closed", PREPRE: "Market closed", POSTPOST: "Market closed" }[q.marketState] || "";
+  const ext = q.marketState?.startsWith("POST") && q.postMarketPrice ? `After hours: <span class="num">${fmtPrice(q.postMarketPrice)}</span>` :
+              q.marketState?.startsWith("PRE") && q.preMarketPrice ? `Pre-market: <span class="num">${fmtPrice(q.preMarketPrice)}</span>` : "";
+  const pos52 = q.fiftyTwoWeekHigh > q.fiftyTwoWeekLow ? Math.min(100, Math.max(0, (q.price - q.fiftyTwoWeekLow) / (q.fiftyTwoWeekHigh - q.fiftyTwoWeekLow) * 100)) : null;
+
+  view.innerHTML = `<a class="back" href="#/">← Markets</a>
+  <div class="q-head">
+    <div>
+      <h1 class="q-name">${esc(name)} <span class="muted mono" style="font-size:18px;font-weight:500">${esc(q.symbol || sym)}</span></h1>
+      <div class="q-sub">${esc(q.fullExchangeName || q.exchange || "")}${q.currency ? " · " + esc(q.currency) : ""}${q.sector ? " · " + esc(q.sector) : ""}${q.industry ? " · " + esc(q.industry) : ""}
+        <button class="star ${watch.includes(sym) ? "on" : ""}" id="starBtn" style="margin-left:8px">${watch.includes(sym) ? "★ Watching" : "☆ Watch"}</button><button class="ai-btn" id="askBtn">✦ Ask AI</button></div>
+    </div>
+    <div>
+      <div><span class="q-price num">${fmtPrice(q.price)}</span><span class="q-chg num ${cls(q.change)}">${arrow(q.change)} ${fmtChg(q.change)} (${fmtPct(q.changePct)})</span></div>
+      <div class="q-state">${ext || marketState}</div>
+    </div>
+  </div>
+  <div class="q-grid">
+    <div>
+      <section class="card">
+        <div class="card-h">
+          <div class="ranges" id="ranges">${RANGE_LABELS.map(([k, l]) => `<button data-r="${k}" class="${k === curRange ? "on" : ""}">${l}</button>`).join("")}</div>
+          <div class="chart-meta" id="chartMeta"></div>
+        </div>
+        <div class="chart-wrap"><canvas id="priceChart" role="img" aria-label="Price chart"></canvas></div>
+        <div class="vol-label">Volume</div>
+        <div class="vol-wrap"><canvas id="volChart" role="img" aria-label="Volume chart"></canvas></div>
+        <div class="returns" id="returns">${["5d", "1mo", "3mo", "ytd", "1y", "5y"].map(k => `<div><div class="k">${{ "5d": "5 day", "1mo": "1 month", "3mo": "3 month", ytd: "YTD", "1y": "1 year", "5y": "5 year" }[k]}</div><div class="v num" data-k="${k}">…</div></div>`).join("")}</div>
+      </section>
+      <section class="card section"><div class="card-h"><h2>Key statistics</h2></div>
+        <div class="stats">${stats.map(([k, v]) => `<div><span>${k}</span><span class="num">${v}</span></div>`).join("")}</div>
+      </section>
+      ${q.longBusinessSummary ? `<section class="card section"><div class="card-h"><h2>About ${esc(q.shortName || name)}</h2></div>
+        <div class="about">${esc(q.longBusinessSummary)}
+          <div class="facts">${q.sector ? `<div>Sector<b>${esc(q.sector)}</b></div>` : ""}${q.industry ? `<div>Industry<b>${esc(q.industry)}</b></div>` : ""}
+          ${q.fullTimeEmployees ? `<div>Employees<b>${q.fullTimeEmployees.toLocaleString()}</b></div>` : ""}
+          ${q.city ? `<div>Headquarters<b>${esc([q.city, q.state, q.country].filter(Boolean).join(", "))}</b></div>` : ""}
+          ${q.website ? `<div>Website<b><a href="${esc(q.website)}" target="_blank" rel="noopener" style="color:var(--accent)">${esc(q.website.replace(/^https?:\/\/(www\.)?/, ""))}</a></b></div>` : ""}</div>
+        </div></section>` : ""}
+    </div>
+    <aside class="side">
+      ${pos52 != null ? `<section class="card"><div class="card-h"><h2>52-week range</h2></div><div class="range52" style="padding-top:14px">
+        <div class="track"><div class="dot" style="left:${pos52}%"></div></div>
+        <div class="ends num"><span>${fmtPrice(q.fiftyTwoWeekLow)}</span><span>${fmtPrice(q.fiftyTwoWeekHigh)}</span></div>
+        <div class="muted" style="font-size:12px;margin-top:6px">${((q.fiftyTwoWeekHigh - q.price) / q.fiftyTwoWeekHigh * 100).toFixed(1)}% below 52-week high · ${((q.price - q.fiftyTwoWeekLow) / q.fiftyTwoWeekLow * 100).toFixed(1)}% above low</div></div></section>` : ""}
+      ${q.targetMeanPrice ? analystCard(q) : ""}
+      <section class="card"><div class="card-h"><h2>${esc(sym)} news</h2></div><ul class="news-list compact" id="tNews"><li class="loading">Loading…</li></ul></section>
+    </aside>
+  </div>`;
+
+  $("#starBtn").onclick = (e) => {
+    let w = store.get("watchlist", []); const on = w.includes(sym);
+    w = on ? w.filter(s => s !== sym) : [...w, sym]; store.set("watchlist", w);
+    e.currentTarget.classList.toggle("on", !on); e.currentTarget.textContent = on ? "☆ Watch" : "★ Watching";
+  };
+  $("#askBtn").onclick = () => openChat();
+  $("#ranges").onclick = (e) => { const b = e.target.closest("[data-r]"); if (!b) return; curRange = b.dataset.r; store.set("range", curRange);
+    [...$("#ranges").children].forEach(c => c.classList.toggle("on", c === b)); drawChart(sym, q); };
+  drawChart(sym, q);
+  api("/api/performance/" + encodeURIComponent(sym)).then(p => {
+    document.querySelectorAll("#returns [data-k]").forEach(el => { const v = p[el.dataset.k]; el.textContent = fmtPct(v); el.className = "v num " + cls(v); });
+  }).catch(() => {});
+  api("/api/news/" + encodeURIComponent(sym)).then(n => { const el = $("#tNews"); if (el) el.innerHTML = n.slice(0, 8).map(newsItem).join("") || '<li class="loading">No recent news.</li>'; })
+    .catch(() => { const el = $("#tNews"); if (el) el.innerHTML = '<li class="loading">No recent news.</li>'; });
+}
+
+function analystCard(q) {
+  const lo = Math.min(q.targetLowPrice ?? q.price, q.price), hi = Math.max(q.targetHighPrice ?? q.price, q.price);
+  const pos = (v) => ((v - lo) / (hi - lo || 1) * 100).toFixed(1);
+  const lblX = (v) => { const p = +pos(v); return p < 18 ? `left:0;transform:none` : p > 82 ? `right:0;left:auto;transform:none` : `left:${p}%`; };
+  const upside = (q.targetMeanPrice - q.price) / q.price * 100;
+  const rec = (q.recommendationKey || "").replace("_", " ");
+  return `<section class="card"><div class="card-h"><h2>Analyst price target</h2>${rec && rec !== "none" ? `<span class="rec">${esc(rec)}</span>` : ""}</div>
+    <div class="target">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <div><div class="num" style="font-size:22px;font-weight:600">${fmtPrice(q.targetMeanPrice)}</div><div class="muted" style="font-size:12px">Average target${q.numberOfAnalystOpinions ? ` · ${q.numberOfAnalystOpinions} analysts` : ""}</div></div>
+        <div class="num ${cls(upside)}" style="font-weight:500">${fmtPct(upside)} ${upside >= 0 ? "upside" : "downside"}</div>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill" style="left:${pos(q.targetLowPrice ?? lo)}%;right:${100 - pos(q.targetHighPrice ?? hi)}%"></div>
+        <div class="mk cur" style="left:${pos(q.price)}%"></div><div class="lbl top num" style="${lblX(q.price)}">Current ${fmtPrice(q.price)}</div>
+        <div class="mk avg" style="left:${pos(q.targetMeanPrice)}%"></div><div class="lbl bot num" style="${lblX(q.targetMeanPrice)}">Avg ${fmtPrice(q.targetMeanPrice)}</div>
+      </div>
+      <div class="ends num" style="display:flex;justify-content:space-between;font-size:12px;color:var(--ink-2)"><span>Low ${fmtPrice(q.targetLowPrice)}</span><span>High ${fmtPrice(q.targetHighPrice)}</span></div>
+    </div></section>`;
+}
+
+// crosshair + previous-close baseline plugin
+const crosshair = {
+  id: "crosshair",
+  afterDraw(chart, _, opts) {
+    const { ctx, chartArea: a, scales: { y } } = chart;
+    if (opts.base != null && opts.showBase) {
+      const yy = y.getPixelForValue(opts.base);
+      if (yy >= a.top && yy <= a.bottom) {
+        ctx.save(); ctx.setLineDash([3, 4]); ctx.strokeStyle = css("--ink-3"); ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(a.left, yy); ctx.lineTo(a.right, yy); ctx.stroke();
+        ctx.setLineDash([]); ctx.fillStyle = css("--ink-3"); ctx.font = "11px Inter"; ctx.textAlign = "right";
+        ctx.fillText("Prev close " + fmtPrice(opts.base), a.right - 4, yy - 5); ctx.restore();
+      }
+    }
+    const act = chart.tooltip?.getActiveElements?.();
+    if (act && act.length) {
+      const x = act[0].element.x;
+      ctx.save(); ctx.strokeStyle = css("--ink-3"); ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
+      ctx.beginPath(); ctx.moveTo(x, a.top); ctx.lineTo(x, a.bottom); ctx.stroke(); ctx.restore();
+    }
+  },
+};
+
+async function drawChart(sym, q) {
+  const rng = curRange;
+  const meta = $("#chartMeta");
+  meta.innerHTML = '<span class="muted">Loading…</span>';
+  let h;
+  try { h = await api(`/api/history/${encodeURIComponent(sym)}?range=${rng}`); } catch { meta.innerHTML = '<span class="muted">Chart unavailable</span>'; return; }
+  if (curSym !== sym || curRange !== rng) return;
+  destroyCharts();
+  const pts = h.points;
+  if (!pts.length) { meta.innerHTML = '<span class="muted">No data for this range</span>'; return; }
+
+  const intraday = rng === "1d" || rng === "5d";
+  const base = rng === "1d" && q.prevClose ? q.prevClose : h.base;
+  const last = rng === "1d" && q.price ? q.price : pts[pts.length - 1].c;
+  const chg = last - base, pct = chg / base * 100, up = chg >= 0;
+  const hi = Math.max(...pts.map(p => p.h ?? p.c)), lo = Math.min(...pts.map(p => p.l ?? p.c));
+  meta.innerHTML = `<span>Change <b class="num ${cls(chg)}">${fmtChg(chg)} (${fmtPct(pct)})</b></span><span>High <b class="num">${fmtPrice(hi)}</b></span><span>Low <b class="num">${fmtPrice(lo)}</b></span>`;
+
+  const labelFmt = (t) => {
+    const d = new Date(t);
+    if (rng === "1d") return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    if (rng === "5d") return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) + " " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  };
+  const tickFmt = (t, i) => {
+    const d = new Date(t);
+    if (rng === "1d") return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    if (rng === "5d") return d.toLocaleDateString("en-US", { weekday: "short" });
+    if (rng === "5y") return d.getFullYear();
+    if (rng === "1y") return d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
+  const labels = pts.map(p => p.t);
+  const color = css(up ? "--up" : "--down");
+  const ink3 = css("--ink-3"), grid = css("--grid"), surface = css("--surface"), border = css("--border"), ink = css("--ink");
+
+  const ctx = $("#priceChart").getContext("2d");
+  const grad = ctx.createLinearGradient(0, 0, 0, 330);
+  grad.addColorStop(0, color + "33"); grad.addColorStop(1, color + "00");
+
+  const tooltip = {
+    enabled: true, mode: "index", intersect: false, displayColors: false,
+    backgroundColor: surface, titleColor: ink3, bodyColor: ink, borderColor: border, borderWidth: 1, padding: 10,
+    titleFont: { family: "Inter", size: 11, weight: "500" }, bodyFont: { family: "JetBrains Mono", size: 12 },
+  };
+  const xTicks = { color: ink3, font: { family: "Inter", size: 11 }, maxRotation: 0, autoSkip: true, autoSkipPadding: 24,
+    callback(v, i) { const t = labels[v];
+      if (rng === "5d") { // one tick per day boundary
+        const prev = labels[v - 1]; if (prev && new Date(prev).getDate() === new Date(t).getDate()) return null; }
+      return tickFmt(t, i); } };
+
+  const priceChart = new Chart(ctx, {
+    type: "line",
+    data: { labels, datasets: [{ data: pts.map(p => p.c), borderColor: color, backgroundColor: grad, fill: true, borderWidth: 2,
+      pointRadius: 0, pointHoverRadius: 5, pointHoverBackgroundColor: color, pointHoverBorderColor: surface, pointHoverBorderWidth: 2, tension: 0.15 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
+      interaction: { mode: "index", intersect: false },
+      layout: { padding: { top: 10 } },
+      scales: {
+        x: { grid: { display: false }, border: { color: border }, ticks: { ...xTicks, autoSkip: rng !== "5d" } },
+        y: { position: "right", grid: { color: grid }, border: { display: false },
+          ticks: { color: ink3, font: { family: "JetBrains Mono", size: 11 }, maxTicksLimit: 6, callback: v => fmtPrice(v) },
+          suggestedMin: rng === "1d" ? Math.min(lo, base) : undefined, suggestedMax: rng === "1d" ? Math.max(hi, base) : undefined },
+      },
+      plugins: {
+        legend: { display: false },
+        crosshair: { base, showBase: rng === "1d" },
+        tooltip: { ...tooltip, callbacks: {
+          title: (it) => labelFmt(labels[it[0].dataIndex]),
+          label: (it) => { const p = pts[it.dataIndex], c = p.c - base;
+            return [`Price  ${fmtPrice(p.c)}`, `Chg    ${fmtChg(c)} (${fmtPct(c / base * 100)})`]; },
+          afterLabel: (it) => intraday ? "" : `Vol    ${fmtBig(pts[it.dataIndex].v)}`,
+        } },
+      },
+    },
+    plugins: [crosshair],
+  });
+
+  const volChart = new Chart($("#volChart"), {
+    type: "bar",
+    data: { labels, datasets: [{ data: pts.map(p => p.v),
+      backgroundColor: pts.map((p, i) => { const prev = i ? pts[i - 1].c : p.o; return (p.c >= prev ? css("--up") : css("--down")) + "80"; }),
+      borderRadius: 1, barPercentage: 0.9, categoryPercentage: 1 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      interaction: { mode: "index", intersect: false },
+      scales: { x: { display: false }, y: { position: "right", grid: { color: grid }, border: { display: false },
+        ticks: { color: ink3, font: { family: "JetBrains Mono", size: 10 }, maxTicksLimit: 2, callback: v => fmtBig(v) } } },
+      plugins: { legend: { display: false }, tooltip: { ...tooltip, callbacks: {
+        title: (it) => labelFmt(labels[it[0].dataIndex]), label: (it) => `Volume  ${fmtBig(it.raw)}` } } },
+    },
+  });
+
+  // sync hover between price and volume charts
+  const sync = (src, dst) => src.canvas.addEventListener("mousemove", () => {
+    const a = src.tooltip.getActiveElements(); if (!a.length) return;
+    const i = a[0].index;
+    dst.setActiveElements([{ datasetIndex: 0, index: i }]); dst.update("none");
+  });
+  sync(priceChart, volChart);
+  const clear = (c) => c.canvas.addEventListener("mouseleave", () => charts.forEach(o => { o.setActiveElements([]); o.tooltip.setActiveElements([], { x: 0, y: 0 }); o.update("none"); }));
+  clear(priceChart); clear(volChart);
+  charts = [priceChart, volChart];
+}
+
+
+// ---------- AI chat
+const chat = { msgs: [], busy: false };   // msgs: {role, content, text, sources?, error?}
+const drawer = $("#drawer"), chatBody = $("#chatBody"), chatIn = $("#chatIn"), chatSend = $("#chatSend");
+const viewSym = () => { const m = location.hash.match(/^#\/q\/(.+)$/); return m ? decodeURIComponent(m[1]).toUpperCase() : null; };
+marked.setOptions({ gfm: true, breaks: false });
+const md = (t) => { const d = document.createElement("div"); d.innerHTML = DOMPurify.sanitize(marked.parse(t || ""));
+  d.querySelectorAll("a").forEach(a => { a.target = "_blank"; a.rel = "noopener"; }); return d.innerHTML; };
+
+function suggestions(sym) {
+  return sym ? [`What are the recent developments for ${sym}?`, `Why is ${sym} moving the way it is right now?`,
+                `Give me the bull and bear case for ${sym}.`, `Is ${sym} expensive compared to its closest peers?`]
+             : ["What's driving the market today?", "Summarize today's biggest movers and why they moved.",
+                "What macro events should I watch this week?"];
+}
+function refreshChatContext() {
+  const sym = viewSym();
+  $("#ctxChip").textContent = sym || "Markets";
+  chatIn.placeholder = sym ? `Ask about ${sym} or the market…` : "Ask about the market or any stock…";
+  if (!chat.msgs.length) renderChat();
+}
+function openChat(prefill) {
+  drawer.classList.add("open"); $("#aiFab").classList.add("hide"); refreshChatContext();
+  if (prefill) chatIn.value = prefill;
+  setTimeout(() => chatIn.focus(), 220);
+}
+function closeChat() { drawer.classList.remove("open"); $("#aiFab").classList.remove("hide"); }
+$("#aiFab").onclick = () => openChat();
+$("#chatClose").onclick = closeChat;
+$("#chatClear").onclick = () => { if (chat.busy) return; chat.msgs = []; renderChat(); };
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && drawer.classList.contains("open")) closeChat(); });
+
+function renderChat() {
+  if (!chat.msgs.length) {
+    const sym = viewSym();
+    chatBody.innerHTML = `<div class="empty"><h3>${sym ? `Ask about ${esc(sym)}` : "Ask about the markets"}</h3>
+      <div>Answers use the live data on your screen plus web search for recent news.</div>
+      <div class="sugs">${suggestions(sym).map(q => `<button>${esc(q)}</button>`).join("")}</div></div>`;
+    chatBody.querySelectorAll(".sugs button").forEach(b => b.onclick = () => sendChat(b.textContent));
+    return;
+  }
+  chatBody.innerHTML = chat.msgs.map((m, i) => msgHtml(m, i)).join("");
+  chatBody.scrollTop = chatBody.scrollHeight;
+}
+function msgHtml(m, i) {
+  if (m.role === "user") return `<div class="msg user">${esc(m.text)}</div>`;
+  const srcs = m.sources?.length ? `<div class="srcs">${m.sources.map(s => { let host = s.url; try { host = new URL(s.url).hostname.replace(/^www\./, ""); } catch {}
+    return `<a href="${esc(s.url)}" target="_blank" rel="noopener" title="${esc(s.title)}">${esc(host)}</a>`; }).join("")}</div>` : "";
+  return `<div class="msg-wrap" data-i="${i}">${m.text ? `<div class="msg bot">${md(m.text)}</div>` : ""}
+    ${m.status != null && chat.busy && i === chat.msgs.length - 1 ? `<div class="status"><span class="dots"><i></i><i></i><i></i></span>${esc(m.status || (m.text ? "" : "Working…"))}</div>` : ""}
+    ${m.error ? `<div class="msg err">${esc(m.error)}</div>` : ""}${srcs}</div>`;
+}
+let rafPending = false;
+function updateLast() {
+  if (rafPending) return; rafPending = true;
+  requestAnimationFrame(() => {
+    rafPending = false;
+    const i = chat.msgs.length - 1, el = chatBody.querySelector(`.msg-wrap[data-i="${i}"]`);
+    const nearBottom = chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight < 80;
+    if (el) el.outerHTML = msgHtml(chat.msgs[i], i); else renderChat();
+    if (nearBottom) chatBody.scrollTop = chatBody.scrollHeight;
+  });
+}
+
+async function sendChat(text) {
+  text = (text ?? chatIn.value).trim();
+  if (!text || chat.busy) return;
+  chatIn.value = ""; autosize();
+  chat.busy = true; chatSend.disabled = true;
+  const userMsg = { role: "user", text, content: text };
+  chat.msgs.push(userMsg);
+  const bot = { role: "assistant", text: "", status: "Gathering data…" };
+  chat.msgs.push(bot); renderChat();
+
+  // history sent to the server: completed turns only (user content includes the context it was asked with)
+  const history = chat.msgs.slice(0, -1).filter(m => m.role === "user" || (m.text && !m.error))
+    .map(m => ({ role: m.role, content: m.role === "user" ? m.content : m.text }));
+  // drop any dangling user turn without an answer (except the new one)
+  const clean = []; history.forEach((m, i) => { if (m.role === "user" && history[i + 1]?.role === "user") return; clean.push(m); });
+
+  try {
+    const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: clean, symbol: viewSym() }) });
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf("\n\n")) >= 0) {
+        const raw = buf.slice(0, idx); buf = buf.slice(idx + 2);
+        const ev = raw.match(/^event: (.*)$/m)?.[1], data = JSON.parse(raw.match(/^data: (.*)$/m)?.[1] || "{}");
+        if (ev === "text") { bot.text += data.text; bot.status = ""; }
+        else if (ev === "status") bot.status = data.text;
+        else if (ev === "context") userMsg.content = data.content;
+        else if (ev === "sources") bot.sources = data.items;
+        else if (ev === "error") bot.error = data.message;
+        updateLast();
+      }
+    }
+  } catch (e) { bot.error = "Connection to the local server failed."; }
+  bot.text = bot.text.trim(); bot.status = null;
+  chat.busy = false; chatSend.disabled = false; updateLast();
+}
+function autosize() { chatIn.style.height = "auto"; chatIn.style.height = Math.min(chatIn.scrollHeight, 140) + "px"; }
+chatIn.addEventListener("input", autosize);
+chatIn.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); } });
+chatSend.onclick = () => sendChat();
+
+// ---------- boot
+loadStrip(); setInterval(loadStrip, 60000);
+setInterval(() => { newsCache = null; moversCache = null; if (!location.hash.startsWith("#/q/")) { loadNews(); loadMovers(); } }, 300000);
+route();
+if (location.search.includes("chat")) openChat(); // open the assistant directly with /?chat
+</script>
+</body>
+</html>

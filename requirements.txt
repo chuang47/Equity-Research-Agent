@@ -1,0 +1,6 @@
+yfinance>=1.0
+flask>=3.0
+feedparser>=6.0
+requests>=2.31
+certifi
+anthropic>=2.6
