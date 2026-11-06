@@ -1,4 +1,4 @@
-# Equity Research (local)
+# Equity Research
 
 A local Yahoo Finance–style dashboard.
 
